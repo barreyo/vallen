@@ -3,4 +3,12 @@ name = "vallen"
 version = "0.1.0"
 authors = ["Johan Backman <backman93@gmail.com>"]
 
-[dependencies]
+[workspace]
+members = [
+    "engine",
+    "game",
+]
+
+[[bin]]
+name = "vallen"
+path = "game/src/main.rs"
