@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use cgmath::Vector3;
 
 // TODO: Be smarter about this at some point in the future - lookup table somewhere?
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Material {
     Air,
     Grass,
@@ -34,7 +34,7 @@ impl QuantizedFloat {
 
     #[inline(always)]
     pub fn decode(&self) -> f32 {
-        (self.value as f32 + 1.0) / 256.0
+        (f32::from(self.value) + 1.0) / 256.0
     }
 }
 
@@ -101,6 +101,7 @@ type VoxelIndex = Vector3<u16>;
 
 impl Chunk {
     /// Empty Chunk
+    #[inline(always)]
     pub fn new(dim: u16) -> Chunk {
         let v = (0..(dim * dim * dim)).map(|_| Voxel::new()).collect::<Vec<Voxel>>();
         Chunk {
@@ -109,11 +110,26 @@ impl Chunk {
         }
     }
 
-    pub fn get_voxel_at(&self, idx: VoxelIndex) -> Voxel {
-        self.voxels[(idx.x + self.dimension * (idx.y + self.dimension * idx.z)) as usize]
+    #[inline(always)]
+    fn one_dim_coord(&self, i: VoxelIndex) -> usize {
+        (i.x + self.dimension * (i.y + self.dimension * i.z)) as usize
     }
 
-    pub fn set_voxel_at(&mut self, idx: VoxelIndex, m: Material)
+    #[inline(always)]
+    pub fn get_voxel_at(&self, idx: VoxelIndex) -> Voxel {
+        self.voxels[self.one_dim_coord(idx)]
+    }
+
+    #[inline(always)]
+    pub fn set_voxel_at(&mut self, idx: VoxelIndex, m: Material, o: QuantizedFloat) {
+        let v = {
+            let mut temp = self.get_voxel_at(idx);
+            temp.set(m, o);
+            temp
+        };
+        let i = self.one_dim_coord(idx);
+        self.voxels[i] = v;
+    }
 }
 
 #[derive(Debug)]
@@ -127,11 +143,17 @@ impl VoxelGrid {
         VoxelGrid { chunks: HashMap::new() }
     }
 
-    pub fn fill(&mut self, chunk: ChunkIndex) {}
+    pub fn fill(&mut self, chunk: ChunkIndex) {
+        unimplemented!();
+    }
 
-    pub fn insert_chunk(&mut self, chunk: ChunkIndex) {}
+    pub fn insert_chunk(&mut self, idx: ChunkIndex, chunk: Chunk) {
+        self.chunks.insert(idx, chunk);
+    }
 
-    pub fn delete_chunk(&mut self, chunk: ChunkIndex) {}
+    pub fn delete_chunk(&mut self, idx: ChunkIndex) {
+        self.chunks.remove(&idx);
+    }
 
     pub fn is_empty(&self) -> bool {
         self.chunks.is_empty()
@@ -143,8 +165,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn empty() {
+    fn vg_empty() {
         let vg = VoxelGrid::new();
         assert!(vg.is_empty());
+    }
+
+    #[test]
+    fn ch_set() {
+        let mut chunk = Chunk::new(32);
+        chunk.set_voxel_at(Vector3::new(1, 5, 3),
+                           Material::Grass,
+                           QuantizedFloat::new(255));
+        assert_eq!(chunk.get_voxel_at(Vector3::new(1, 5, 3)).get_material(),
+                   Material::Grass);
     }
 }

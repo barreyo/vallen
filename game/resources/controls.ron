@@ -1,0 +1,18 @@
+(
+    axes: {
+        "camera_y": (
+            pos: Key(Space),
+            neg: Key(Down),
+        ),
+        "camera_x": (
+            pos: Key(D),
+            neg: Key(A),
+        ),
+        "camera_z": (
+            pos: Key(S),
+            neg: Key(W),
+        ),
+    },
+    actions: { },
+)
+

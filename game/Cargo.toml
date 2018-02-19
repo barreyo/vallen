@@ -4,3 +4,13 @@ version = "0.1.0"
 authors = ["Johan Backman <backman93@gmail.com>"]
 
 [dependencies]
+amethyst = "*"
+cgmath = { version = "*", features = ["simd"] }
+env_logger = "0.4.3"
+genmesh = "*"
+log = "0.4.1"
+
+[dev-dependencies]
+clippy = { version = "0.0.179" }
+quickcheck = "0.6"
+quickcheck_macros = "0.6"

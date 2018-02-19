@@ -3,17 +3,38 @@ name = "engine"
 version = "0.1.0"
 authors = ["Johan Backman <backman93@gmail.com>"]
 
+[features]
+default = []
+metal = ["backend-metal"]
+# gl = ["backend-gl"]
+# dx12 = ["backend-dx12"]
+vulkan = ["backend-vulkan"]
+
 [dependencies]
 cgmath = "0.16"
 env_logger = "0.4.3"
 gfx = "0.17"
-gfx_shader_watch = "0.4.0"
+gfx-hal = { version = "*", git = "https://github.com/omni-viral/gfx.git" }
 log = "0.4.1"
 obj = "0.8.1"
-roaring = "0.5.2"
+petgraph = "0.4.11"
 specs = "0.10.0"
 winit = "0.10.0"
 
+[target.'cfg(not(target_os = "macos"))'.dependencies.backend-vulkan]
+version = "*"
+optional = true
+features = ["glsl-to-spirv"]
+git = "https://github.com/omni-viral/gfx.git"
+branch = "metal_mapping"
+
+[target.'cfg(target_os = "macos")'.dependencies.backend-metal]
+version = "*"
+optional = true
+features = ["winit"]
+git = "https://github.com/gfx-rs/gfx/tree/master/src/backend/metal"
+
 [dev-dependencies]
+clippy = { version = "0.0.179" }
 quickcheck = "0.6"
 quickcheck_macros = "0.6"

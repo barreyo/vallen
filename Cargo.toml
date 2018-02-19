@@ -5,8 +5,10 @@ authors = ["Johan Backman <backman93@gmail.com>"]
 
 [workspace]
 members = [
-    "engine",
+    # "engine",
     "game",
+    # "editor",
+    # etc ...
 ]
 
 [[bin]]
