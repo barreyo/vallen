@@ -1,19 +1,34 @@
+#![allow(dead_code)]
+// Configure Clippy to run when testing
+#![cfg_attr(test, feature(plugin))]
+#![cfg_attr(test, plugin(clippy))]
+// Use QuickCheck only when testing
+#![cfg_attr(test, feature(plugin))]
+#![cfg_attr(test, plugin(quickcheck_macros))]
+
+#[cfg(test)]
+extern crate quickcheck;
+
 extern crate amethyst;
+extern crate cgmath;
 extern crate genmesh;
 
 use amethyst::assets::Loader;
-use amethyst::core::cgmath::{Deg, Quaternion, Rotation3, Vector3};
+use amethyst::core::cgmath::{Deg, Vector3};
 use amethyst::core::cgmath::prelude::InnerSpace;
+use amethyst::core::cgmath::{Quaternion, Rotation3};
 use amethyst::core::transform::{LocalTransform, Transform, TransformBundle};
+use amethyst::core::frame_limiter::FrameRateLimitStrategy;
 use amethyst::ecs::World;
 use amethyst::prelude::*;
 use amethyst::input::InputBundle;
 use amethyst::renderer::{AmbientColor, Camera, DisplayConfig, DrawShaded, Event, KeyboardInput,
                          Light, Mesh, Pipeline, PointLight, PosNormTex, Projection, RenderBundle,
                          RenderSystem, Rgba, Stage, VirtualKeyCode, WindowEvent};
-use genmesh::{MapToVertices, Triangulate, Vertices};
-use genmesh::generators::SphereUV;
+use amethyst::utils::fps_counter::FPSCounterBundle;
+use genmesh::{generators, MapToVertices, Triangulate, Vertices};
 
+mod voxel_grid;
 mod camera_bundle;
 mod fly_cam;
 
@@ -23,16 +38,16 @@ const SPHERE_COLOUR: [f32; 4] = [0.0, 0.0, 1.0, 1.0]; // blue
 const AMBIENT_LIGHT_COLOUR: Rgba = Rgba(0.01, 0.01, 0.01, 1.0); // near-black
 const POINT_LIGHT_COLOUR: Rgba = Rgba(1.0, 1.0, 1.0, 1.0); // white
 const BACKGROUND_COLOUR: [f32; 4] = [0.0, 0.0, 0.0, 0.0]; // black
-const LIGHT_POSITION: [f32; 3] = [2.0, 2.0, -2.0];
+const LIGHT_POSITION: [f32; 3] = [2.0, 2.0, 2.0];
 const LIGHT_RADIUS: f32 = 5.0;
 const LIGHT_INTENSITY: f32 = 3.0;
 
-struct Example;
+struct VallenGameState;
 
-impl State for Example {
+impl State for VallenGameState {
     fn on_start(&mut self, world: &mut World) {
-        // Initialise the scene with an object, a light and a camera.
-        initialise_sphere(world);
+        // Initialize the scene with an object, a light and a camera.
+        initialise_terrain(world);
         initialise_lights(world);
         initialise_camera(world);
     }
@@ -58,8 +73,7 @@ impl State for Example {
 fn run() -> Result<(), amethyst::Error> {
     let display_config_path = format!("{}/resources/display.ron", env!("CARGO_MANIFEST_DIR"));
     let key_bindings_path = format!("{}/resources/controls.ron", env!("CARGO_MANIFEST_DIR"));
-
-    let resources = format!("{}/examples/assets/", env!("CARGO_MANIFEST_DIR"));
+    let resources = format!("{}/resources/assets/", env!("CARGO_MANIFEST_DIR"));
 
     let pipe = Pipeline::build().with_stage(
         Stage::with_backbuffer()
@@ -69,49 +83,75 @@ fn run() -> Result<(), amethyst::Error> {
 
     let config = DisplayConfig::load(&display_config_path);
 
-    let mut game = Application::build(resources, Example)?
+    let mut game = Application::build(resources, VallenGameState)?
         .with_bundle(RenderBundle::new())?
         .with_local(RenderSystem::build(pipe, Some(config))?)
         .with_bundle(
             InputBundle::<String, String>::new().with_bindings_from_file(&key_bindings_path),
         )?
+        .with_frame_limit(FrameRateLimitStrategy::Unlimited, 0)
+        .with_bundle(FPSCounterBundle::default())?
         .with_bundle(CameraBundle)?
         .with_bundle(TransformBundle::new().with_dep(&["fly_cam_system"]))?
         .build()?;
     Ok(game.run())
 }
 
-fn main() {
-    if let Err(e) = run() {
-        println!("Failed to execute example: {}", e);
-        ::std::process::exit(1);
-    }
-}
-
-fn gen_sphere(u: usize, v: usize) -> Vec<PosNormTex> {
-    SphereUV::new(u, v)
-        .vertex(|v| PosNormTex {
-            position: v.pos,
-            normal: Vector3::from(v.normal).normalize().into(),
-            tex_coord: [0.1, 0.1],
-        })
-        .triangulate()
-        .vertices()
-        .collect()
-}
-
-/// This function initialises a sphere and adds it to the world.
-fn initialise_sphere(world: &mut World) {
-    // Create a sphere mesh and material.
-
+fn initialise_terrain(world: &mut World) {
     use amethyst::assets::Handle;
     use amethyst::renderer::{Material, MaterialDefaults};
+
+    let mut vg = voxel_grid::VoxelGrid::new();
+
+    {
+        // Generate a plane of grass in the voxel grid
+        let mut first_chunk = voxel_grid::Chunk::new(32);
+
+        for outer in 0..32 {
+            for inner in 0..32 {
+                first_chunk.set_voxel_at(
+                    Vector3::new(outer, 16, inner),
+                    voxel_grid::Material::Grass,
+                    voxel_grid::QuantizedFloat::new(255),
+                );
+            }
+        }
+        vg.insert_chunk(&Vector3::new(0, 0, 0), first_chunk)
+    }
+
+    // Turn voxel grid into triangles
+    let chunk_size: f32 = 60.0;
+    let voxel_size = (chunk_size / 32.0) / 4.0;
+
+    let mut vertex_data: Vec<PosNormTex> = Vec::new();
+
+    for outer in 0..32 {
+        for inner in 0..32 {
+            vertex_data.extend(
+                generators::Cube::new()
+                    .vertex(|v| PosNormTex {
+                        position: [
+                            v.pos[0] + outer as f32 * voxel_size,
+                            v.pos[1],
+                            v.pos[2] + inner as f32 * voxel_size,
+                        ],
+                        normal: Vector3::from(v.normal).normalize().into(),
+                        tex_coord: [0.1, 0.1],
+                    })
+                    .triangulate()
+                    .vertices()
+                    .collect::<Vec<PosNormTex>>(),
+            )
+        }
+    }
+
+    println!("vertices: {:?}", vertex_data.len());
 
     let (mesh, material) = {
         let loader = world.read_resource::<Loader>();
 
         let mesh: Handle<Mesh> =
-            loader.load_from_data(gen_sphere(32, 32).into(), (), &world.read_resource());
+            loader.load_from_data(vertex_data.into(), (), &world.read_resource());
 
         let albedo = SPHERE_COLOUR.into();
 
@@ -128,7 +168,6 @@ fn initialise_sphere(world: &mut World) {
         (mesh, mat)
     };
 
-    // Create a sphere entity using the mesh and the material.
     world
         .create_entity()
         .with(Transform::default())
@@ -154,9 +193,8 @@ fn initialise_lights(world: &mut World) {
     world.create_entity().with(light).build();
 }
 
-/// This function initialises a camera and adds it to the world.
+/// This function initializes a camera and adds it to the world.
 fn initialise_camera(world: &mut World) {
-    use amethyst::core::cgmath::Matrix4;
     let mut local = LocalTransform::default();
     local.translation = Vector3::new(0.0, 0.0, -4.0);
     local.rotation = Quaternion::from_angle_x(Deg(180.0)).into();
@@ -166,4 +204,11 @@ fn initialise_camera(world: &mut World) {
         .with(local)
         .with(Transform::default())
         .build();
+}
+
+fn main() {
+    if let Err(e) = run() {
+        println!("Failed to execute example: {}", e);
+        ::std::process::exit(1);
+    }
 }

@@ -28,7 +28,7 @@ impl<'s> System<'s> for FlyCamSystem {
         Fetch<'s, ScreenDimensions>,
     );
 
-    fn run(&mut self, (cams, mut transforms, time, input, dims): Self::SystemData) {
+    fn run(&mut self, (cams, mut transforms, time, input, _dims): Self::SystemData) {
         let x_in = input.axis_value("camera_x");
         let y_in = input.axis_value("camera_y");
         let z_in = input.axis_value("camera_z");
@@ -59,16 +59,11 @@ impl<'s> System<'s> for FlyCamSystem {
 
         for (_cam, transform) in (&cams, &mut transforms).join() {
             if move_dir.magnitude() != 0.0 {
-                transform.move_local(move_dir, time.delta_seconds() * 1.0);
+                transform.move_local(move_dir, time.delta_seconds() * 1.5);
             }
         }
 
         if let Some((mouse_x, mouse_y)) = rot_move {
-            let half_width = dims.width() / 2.0;
-            let half_height = dims.height() / 2.0;
-            let _offset_width = half_width - mouse_x as f32;
-            let _offset_height = half_height - mouse_y as f32;
-
             let diff = self.mouse_cache - Vector2::new(mouse_x as f32, mouse_y as f32);
             self.mouse_cache = Vector2::new(mouse_x as f32, mouse_y as f32);
 
