@@ -14,23 +14,25 @@ extern crate cgmath;
 extern crate genmesh;
 
 use amethyst::assets::Loader;
-use amethyst::core::cgmath::{Deg, Vector3};
 use amethyst::core::cgmath::prelude::InnerSpace;
+use amethyst::core::cgmath::{Deg, Vector3};
 use amethyst::core::cgmath::{Quaternion, Rotation3};
-use amethyst::core::transform::{LocalTransform, Transform, TransformBundle};
 use amethyst::core::frame_limiter::FrameRateLimitStrategy;
+use amethyst::core::transform::{LocalTransform, Transform, TransformBundle};
 use amethyst::ecs::World;
-use amethyst::prelude::*;
 use amethyst::input::InputBundle;
-use amethyst::renderer::{AmbientColor, Camera, DisplayConfig, DrawShaded, Event, KeyboardInput,
-                         Light, Mesh, Pipeline, PointLight, PosNormTex, Projection, RenderBundle,
-                         RenderSystem, Rgba, Stage, VirtualKeyCode, WindowEvent};
+use amethyst::prelude::*;
+use amethyst::renderer::{
+    AmbientColor, Camera, DisplayConfig, DrawShaded, Event, KeyboardInput, Light, Mesh, Pipeline,
+    PointLight, PosNormTex, Projection, RenderBundle, RenderSystem, Rgba, Stage, VirtualKeyCode,
+    WindowEvent,
+};
 use amethyst::utils::fps_counter::FPSCounterBundle;
 use genmesh::{generators, MapToVertices, Triangulate, Vertices};
 
-mod voxel_grid;
 mod camera_bundle;
 mod fly_cam;
+mod voxel_grid;
 
 use camera_bundle::CameraBundle;
 
